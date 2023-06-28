@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>스크랩북</title>
+    <link rel="stylesheet" href="../master.css">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+
+    <input id="imageupload" class="gone" type="file" accept="image/jpeg, image/jpg, image/png, image/webp">
+    <!-- <button onclick="imageUpload.click()">이미지 불러오기</button>
+    <button onclick="createText(scrapbook)">텍스트 생성하기</button> -->
+
+  </body>
+  <script type="text/javascript" src="scrapbook.js"></script>
+  <script type="text/javascript">
+    init();
+
+    var scrapbook = new Scrapbook();
+
+    const text = new TextElement();
+    scrapbook.add(text);
+    text.move(100, 100);
+    text.setText("안녕하세요! 이건 단순한 디지털 스크랩북 데모입니다.<br><br>이 텍스트 상자는 드래그해서 움직일 수 있고, 더블클릭하면 텍스트 수정과 상자 크기 조절이 가능합니다.");
+    text.setSize(265, 279);
+
+    const image = new ImageElement("democow.webp");
+    scrapbook.add(image);
+    image.move(440, 192);
+
+    const text2 = new TextElement();
+    scrapbook.add(text2);
+    text2.move(285, 253);
+    text2.setText("또 아무것도 선택되지 않은 상태에서 타이핑하면 저절로 텍스트 상자가 생깁니다.");
+    text2.setSize(255, 89);
+
+    const text3 = new TextElement();
+    scrapbook.add(text3);
+    text3.move(451, 654);
+    text3.setText("이미지도 넣을 수 있어요 :)");
+  </script>
+</html>
