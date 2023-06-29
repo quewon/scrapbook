@@ -44,12 +44,13 @@ body.dragging * {
 }
 
 .ephemera [contenteditable] {
-  min-width: 1ch;
+  min-width: 2ch;
   min-height: 1em;
   resize: none;
   word-break: keep-all;
   pointer-events: none;
-  overflow: auto;
+  overflow: hidden;
+  overflow-y: scroll;
   padding: 3px;
 }
 .ephemera.selected [contenteditable] {
@@ -67,6 +68,8 @@ body.dragging * {
   width: 100%;
   height: 100%;
   user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
   object-fit: contain;
   pointer-events: none;
 }

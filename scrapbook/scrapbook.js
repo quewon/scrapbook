@@ -139,6 +139,7 @@ function init() {
 
   document.addEventListener("keypress", function(e) {
     if (!textCreationDisabled && e.key) {
+      if (e.ctrlKey || e.metaKey || e.key == "Backspace" || e.key == "Escape") return;
       e.preventDefault();
       var ephemera = createText(scrapbook);
     }
