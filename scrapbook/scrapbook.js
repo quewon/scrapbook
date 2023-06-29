@@ -13,6 +13,10 @@ function init() {
     }
   });
 
+  document.addEventListener("mousedown", function(e) {
+
+  });
+
   document.addEventListener("mouseup", function(e) {
     if (draggingEphemera) draggingEphemera.drop();
 
@@ -73,6 +77,32 @@ function init() {
     }
   });
 
+  document.addEventListener("keydown", function(e) {
+    if (selectedEphemera && !selectedEphemera.focused) {
+      if (e.key == "ArrowUp" || e.key == "ArrowDown" || e.key == "ArrowLeft" || e.key == "ArrowRight") {
+        e.preventDefault();
+
+        switch (e.key) {
+          case "ArrowUp":
+            selectedEphemera.move(selectedEphemera.position.x, selectedEphemera.position.y - 1);
+            break;
+
+          case "ArrowDown":
+            selectedEphemera.move(selectedEphemera.position.x, selectedEphemera.position.y + 1);
+            break;
+
+          case "ArrowLeft":
+            selectedEphemera.move(selectedEphemera.position.x - 1, selectedEphemera.position.y);
+            break;
+
+          case "ArrowRight":
+            selectedEphemera.move(selectedEphemera.position.x + 1, selectedEphemera.position.y);
+            break;
+        }
+      }
+    }
+  });
+
   document.addEventListener("keypress", function(e) {
     if (!selectedEphemera && e.key) {
       e.preventDefault();
@@ -124,8 +154,9 @@ class Ephemera {
       const ephemera = scrapbook.ephemera[this.dataset.index];
 
       ephemera.mousedown = true;
+      ephemera.mousedownPosition = { x: mousePosition.x, y: mousePosition.y };
 
-      if (!ephemera.selected) {
+      if (!ephemera.focused) {
         ephemera.drag(mousePosition.x, mousePosition.y);
       }
 
@@ -134,17 +165,25 @@ class Ephemera {
   }
 
   move(x, y) {
-    const ox = this.dragOffset ? this.dragOffset.x : 0;
-    const oy = this.dragOffset ? this.dragOffset.y : 0;
+    this.position = {
+      x: x + (this.dragOffset ? this.dragOffset.x : 0),
+      y: y + (this.dragOffset ? this.dragOffset.y : 0)
+    }
 
-    this.domElement.style.left = (x + ox)+"px";
-    this.domElement.style.top = (y + oy)+"px";
-    this.mousedown = false;
+    this.domElement.style.left = this.position.x+"px";
+    this.domElement.style.top = this.position.y+"px";
+
+    if (this.mousedownPosition) {
+      const a = mousePosition.x - this.mousedownPosition.x;
+      const b = mousePosition.y - this.mousedownPosition.y;
+      const sqrMagnitude = a * a + b * b;
+      if (sqrMagnitude > 1) {
+        this.mousedown = false;
+      }
+    }
   }
 
   drag(x, y) {
-    if (selectedEphemera) selectedEphemera.deselect();
-
     this.domElement.classList.add("dragging");
 
     const rect = this.domElement.getBoundingClientRect();
@@ -163,6 +202,9 @@ class Ephemera {
     draggingEphemera = null;
     this.dragging = false;
     this.mousedown = false;
+    this.dragOffset = { x:0, y:0 };
+
+    if (selectedEphemera && selectedEphemera != this) selectedEphemera.deselect();
   }
 
   select(autoFocus) {

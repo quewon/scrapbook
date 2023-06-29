@@ -12,8 +12,9 @@ body.dragging * {
 .ephemera {
   position: absolute;
   border: 1px solid lightgray;
+  background: rgba(255,255,255, .5);
 }
-.ephemera:not(.selected) {
+.ephemera:not(.focused) {
   cursor: grab;
 }
 .ephemera:active {
@@ -52,8 +53,10 @@ body.dragging * {
   padding: 3px;
 }
 .ephemera.selected [contenteditable] {
-  pointer-events: auto;
   cursor: text;
+}
+.ephemera.focused [contenteditable] {
+  pointer-events: auto;
   resize: both;
 }
 .ephemera [contenteditable]:focus {
@@ -74,7 +77,7 @@ body.dragging * {
   pointer-events: none;
   line-height: 0;
 }
-.ephemera.selected .image {
+.ephemera.focused .image {
   pointer-events: auto;
   resize: both;
 }
