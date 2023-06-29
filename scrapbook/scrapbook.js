@@ -21,7 +21,7 @@ function init() {
 
   document.addEventListener("mouseup", function(e) {
     for (let i=selectedEphemera.length-1; i>=0; i--) {
-      selectedEphemera[i].deselect();
+      selectedEphemera[i].deselect(i>0);
     }
 
     if (draggingEphemera) draggingEphemera.drop();
@@ -66,16 +66,14 @@ function init() {
   });
 
   document.addEventListener("keyup", function(e) {
-    if (e.shiftKey) {
-      shiftKeyDown = false;
-    }
+    shiftKeyDown = e.shiftKey;
 
     switch (e.key) {
       case "Backspace":
         for (let i=selectedEphemera.length-1; i>=0; i--) {
           const ephemera = selectedEphemera[i];
           if (!ephemera.focused) {
-            ephemera.delete();
+            ephemera.delete(i > 0);
           }
         }
         break;
@@ -83,7 +81,7 @@ function init() {
       case "Escape":
         if (draggingEphemera) draggingEphemera.drop();
         for (let i=selectedEphemera.length-1; i>=0; i--) {
-          selectedEphemera[i].deselect();
+          selectedEphemera[i].deselect(i > 0);
         }
         break;
     }
@@ -95,9 +93,7 @@ function init() {
   });
 
   document.addEventListener("keydown", function(e) {
-    if (e.shiftKey) {
-      shiftKeyDown = true;
-    }
+    shiftKeyDown = e.shiftKey;
 
     if ((e.ctrlKey || e.metaKey) && e.key == "z") {
       e.preventDefault();
@@ -135,7 +131,7 @@ function init() {
 
         for (let ephemera of selectedEphemera) {
           if (ephemera.focused) continue;
-          ephemera.move(ephemera.position.x + x, ephemera.position.y + y);
+          ephemera.move(ephemera.position.x + x, ephemera.position.y + y, null, i > 0);
         }
       }
     }
@@ -186,7 +182,7 @@ class Scrapbook {
   }
 
   undo() {
-    if (this.historyIndex == 0) {
+    if (this.historyIndex <= 0) {
       console.log("no more undos");
       return;
     }
@@ -199,8 +195,8 @@ class Scrapbook {
   }
 
   redo() {
-    if (this.historyIndex == this.history.length - 1) {
-      console.log("no more redos");
+    if (this.historyIndex >= this.history.length - 1) {
+      console.trace("no more redos");
       return;
     }
 
@@ -283,6 +279,8 @@ class Scrapbook {
 
     this.history.push(this.createSnapshot());
     this.historyIndex = this.history.length - 1;
+
+    console.trace("step");
   }
 }
 
@@ -358,9 +356,11 @@ class Ephemera {
   }
 
   drag(x, y) {
-    if (!shiftKeyDown) {
+    if (!shiftKeyDown && !this.selected) {
       for (let i=selectedEphemera.length-1; i>=0; i--) {
-        selectedEphemera[i].deselect();
+        const ephemera = selectedEphemera[i];
+        if (ephemera == this) continue;
+        ephemera.deselect(i > 0);
       }
     }
 
@@ -389,7 +389,7 @@ class Ephemera {
     if (!plusSelect) {
       for (let i=selectedEphemera.length-1; i>=0; i--) {
         if (selectedEphemera[i] == this) continue;
-        selectedEphemera[i].deselect();
+        selectedEphemera[i].deselect(i > 0);
       }
     }
 
@@ -406,6 +406,15 @@ class Ephemera {
       this.selected = true;
       if (autoFocus) this.focus();
       this.drop(dontStep, plusSelect);
+
+      if (plusSelect) {
+        for (let ephemera of selectedEphemera) {
+          if (ephemera.focused) {
+            ephemera.unfocus(true);
+          }
+        }
+        if (selectedEphemera.length > 0) scrapbook.step();
+      }
     }
   }
 
