@@ -163,7 +163,8 @@ class Scrapbook {
     this.historyIndex--;
     this.pasteSnapshot(this.history[this.historyIndex]);
 
-    console.log(this.historyIndex);
+    this.workspaceSnapshot = this.createSnapshot();
+    this.pasteSnapshot(this.workspaceSnapshot);
   }
 
   redo() {
@@ -175,7 +176,8 @@ class Scrapbook {
     this.historyIndex++;
     this.pasteSnapshot(this.history[this.historyIndex]);
 
-    console.log(this.historyIndex);
+    this.workspaceSnapshot = this.createSnapshot();
+    this.pasteSnapshot(this.workspaceSnapshot);
   }
 
   pasteSnapshot(snapshot) {
@@ -202,29 +204,19 @@ class Scrapbook {
       switch (ephemera.type) {
         case "image":
           temp = new ImageElement(ephemera.imageSrc);
-
-          width = parseInt(ephemera.image.style.width);
-          height = parseInt(ephemera.image.style.height);
-
-          if (width || height) {
-            temp.setSize(width, height);
-          }
           break;
 
         case "text":
           temp = new TextElement(ephemera.textarea.innerHTML);
-
-          width = parseInt(ephemera.textarea.style.width);
-          height = parseInt(ephemera.textarea.style.height);
-
-          if (width || height) {
-            temp.setSize(width, height);
-          }
           break;
       }
 
-      if (ephemera.position) {
-        temp.move(ephemera.position.x, ephemera.position.y);
+      if (ephemera.size) temp.setSize(ephemera.size.width, ephemera.size.height);
+      if (ephemera.position) temp.move(ephemera.position.x, ephemera.position.y);
+      if (ephemera.focused) {
+        temp.select(true);
+      } else if (ephemera.selected) {
+        temp.select();
       }
 
       snapshot[ephemera.domOrder] = temp;
@@ -238,6 +230,9 @@ class Scrapbook {
 
     this.history = [];
     this.step();
+
+    this.workspaceSnapshot = this.createSnapshot();
+    this.pasteSnapshot(this.workspaceSnapshot);
   }
 
   step() {
@@ -327,7 +322,7 @@ class Ephemera {
 
     if (selectedEphemera && selectedEphemera != this) selectedEphemera.deselect();
 
-    if (!dontStep) this.scrapbook.step();
+    if (!dontStep && this.scrapbook) this.scrapbook.step();
   }
 
   select(autoFocus) {
@@ -430,6 +425,8 @@ class TextElement extends Ephemera {
   }
 
   setSize(width, height) {
+    this.size = { width: width, height: height };
+
     this.textarea.style.width = width+"px";
     this.textarea.style.height = height+"px";
 
@@ -464,6 +461,8 @@ class ImageElement extends Ephemera {
   }
 
   setSize(width, height) {
+    this.size = { width: width, height: height };
+
     this.image.style.width = width+"px";
     this.image.style.height = height+"px";
 
