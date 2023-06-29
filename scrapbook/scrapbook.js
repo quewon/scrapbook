@@ -1,6 +1,7 @@
-var selectedEphemera;
+var selectedEphemera = [];
 var draggingEphemera;
 var textCreationDisabled = false;
+var shiftKeyDown = false;
 
 var imageUpload = document.getElementById("imageupload");
 var mousePosition = { x:-1, y:-1 };
@@ -19,15 +20,11 @@ function init() {
   });
 
   document.addEventListener("mouseup", function(e) {
-    if (draggingEphemera) draggingEphemera.drop();
-
-    if (selectedEphemera) {
-      if (selectedEphemera.mousedown) {
-        selectedEphemera.mousedown = false;
-      } else {
-        selectedEphemera.deselect();
-      }
+    for (let i=selectedEphemera.length-1; i>=0; i--) {
+      selectedEphemera[i].deselect();
     }
+
+    if (draggingEphemera) draggingEphemera.drop();
   });
 
   document.addEventListener("blur", function(e) {
@@ -69,15 +66,25 @@ function init() {
   });
 
   document.addEventListener("keyup", function(e) {
+    if (e.shiftKey) {
+      shiftKeyDown = false;
+    }
+
     switch (e.key) {
       case "Backspace":
-        if (selectedEphemera && !selectedEphemera.focused) {
-          selectedEphemera.delete();
+        for (let i=selectedEphemera.length-1; i>=0; i--) {
+          const ephemera = selectedEphemera[i];
+          if (!ephemera.focused) {
+            ephemera.delete();
+          }
         }
         break;
 
       case "Escape":
         if (draggingEphemera) draggingEphemera.drop();
+        for (let i=selectedEphemera.length-1; i>=0; i--) {
+          selectedEphemera[i].deselect();
+        }
         break;
     }
 
@@ -88,38 +95,48 @@ function init() {
   });
 
   document.addEventListener("keydown", function(e) {
+    if (e.shiftKey) {
+      shiftKeyDown = true;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key == "z") {
       e.preventDefault();
-      if (e.shiftKey) {
+      if (shiftKeyDown) {
         scrapbook.redo();
       } else {
         scrapbook.undo();
       }
     }
 
-    if (selectedEphemera && !selectedEphemera.focused) {
+    if (selectedEphemera.length > 0) {
       if (e.key == "ArrowUp" || e.key == "ArrowDown" || e.key == "ArrowLeft" || e.key == "ArrowRight") {
         e.preventDefault();
 
+        let x = 0;
+        let y = 0;
+
         switch (e.key) {
           case "ArrowUp":
-            selectedEphemera.move(selectedEphemera.position.x, selectedEphemera.position.y - 1);
+            y = -1;
             break;
 
           case "ArrowDown":
-            selectedEphemera.move(selectedEphemera.position.x, selectedEphemera.position.y + 1);
+            y = 1;
             break;
 
           case "ArrowLeft":
-            selectedEphemera.move(selectedEphemera.position.x - 1, selectedEphemera.position.y);
+            x = -1;
             break;
 
           case "ArrowRight":
-            selectedEphemera.move(selectedEphemera.position.x + 1, selectedEphemera.position.y);
+            x = 1;
             break;
         }
-      } else if (e.key == "Escape") {
-        if (selectedEphemera) selectedEphemera.deselect();
+
+        for (let ephemera of selectedEphemera) {
+          if (ephemera.focused) continue;
+          ephemera.move(ephemera.position.x + x, ephemera.position.y + y);
+        }
       }
     }
   });
@@ -130,6 +147,20 @@ function init() {
       var ephemera = createText(scrapbook);
     }
   });
+}
+
+function toDataUrl(url, callback) {
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function() {
+      var reader = new FileReader();
+      reader.onloadend = function() {
+          callback(reader.result);
+      }
+      reader.readAsDataURL(xhr.response);
+  };
+  xhr.open('GET', url);
+  xhr.responseType = 'blob';
+  xhr.send();
 }
 
 class Scrapbook {
@@ -185,18 +216,32 @@ class Scrapbook {
       this.ephemera[i].delete(true);
     }
 
-    for (let ephemera of snapshot) {
-      this.add(ephemera, true);
+    snapshot = JSON.parse(snapshot).data;
 
-      if (ephemera.focused) {
-        ephemera.selected = false;
-        ephemera.focused = false;
-        ephemera.select(true, true);
-      } else if (ephemera.selected) {
-        ephemera.selected = false;
-        ephemera.select(false, true);
+    for (let ephemera of snapshot) {
+      var temp;
+      var width, height;
+
+      switch (ephemera.type) {
+        case "image":
+          temp = new ImageElement(ephemera.imageSrc);
+          break;
+
+        case "text":
+          temp = new TextElement(ephemera.text);
+          break;
+      }
+
+      if (ephemera.size) temp.setSize(ephemera.size.width, ephemera.size.height);
+      if (ephemera.position) temp.move(ephemera.position.x, ephemera.position.y);
+      temp.mousedown = ephemera.mousedown;
+
+      this.add(temp, true);
+
+      if (ephemera.selected) {
+        temp.select(false, true);
       } else {
-        ephemera.deselect(true);
+        temp.deselect(true);
       }
     }
   }
@@ -209,29 +254,18 @@ class Scrapbook {
     }
 
     for (let ephemera of this.ephemera) {
-      var temp;
-      var width, height;
-
-      switch (ephemera.type) {
-        case "image":
-          temp = new ImageElement(ephemera.imageSrc);
-          break;
-
-        case "text":
-          temp = new TextElement(ephemera.textarea.innerHTML);
-          break;
-      }
-
-      if (ephemera.size) temp.setSize(ephemera.size.width, ephemera.size.height);
-      if (ephemera.position) temp.move(ephemera.position.x, ephemera.position.y);
-      temp.focused = ephemera.focused;
-      temp.selected = ephemera.selected;
-      temp.mousedown = ephemera.mousedown;
-
-      snapshot[ephemera.domOrder] = temp;
+      snapshot[ephemera.domOrder] = {
+        type: ephemera.type,
+        text: ephemera.type == "text" ? ephemera.textarea.innerHTML : null,
+        imageSrc: ephemera.imageSrc,
+        position: ephemera.position,
+        size: ephemera.size,
+        mousedown: ephemera.mousedown,
+        selected: ephemera.selected
+      };
     }
 
-    return snapshot;
+    return JSON.stringify({ data: snapshot });
   }
 
   clearHistory() {
@@ -265,9 +299,13 @@ class Ephemera {
     this.domElement.addEventListener("mouseup", function(e) {
       const ephemera = scrapbook.ephemera[this.dataset.index];
       if (ephemera.mousedown) {
-        ephemera.select();
+        if (shiftKeyDown) {
+          ephemera.select(null, null, true);
+        } else {
+          ephemera.select();
+        }
       } else if (ephemera.dragging) {
-        ephemera.drop();
+        ephemera.drop(null, true);
       }
 
       e.stopPropagation();
@@ -287,10 +325,23 @@ class Ephemera {
     });
   }
 
-  move(x, y) {
+  move(x, y, stopPropagation) {
+    const ox = this.position ? this.position.x : 0;
+    const oy = this.position ? this.position.y : 0;
+
     this.position = {
       x: x + (this.dragOffset ? this.dragOffset.x : 0),
       y: y + (this.dragOffset ? this.dragOffset.y : 0)
+    }
+
+    const dx = ox - this.position.x;
+    const dy = oy - this.position.y;
+
+    if (!stopPropagation) {
+      for (let ephemera of selectedEphemera) {
+        if (ephemera == this) continue;
+        ephemera.move(ephemera.position.x - dx, ephemera.position.y - dy, true);
+      }
     }
 
     this.domElement.style.left = this.position.x+"px";
@@ -307,6 +358,12 @@ class Ephemera {
   }
 
   drag(x, y) {
+    if (!shiftKeyDown) {
+      for (let i=selectedEphemera.length-1; i>=0; i--) {
+        selectedEphemera[i].deselect();
+      }
+    }
+
     this.domElement.classList.add("dragging");
 
     const rect = this.domElement.getBoundingClientRect();
@@ -321,7 +378,7 @@ class Ephemera {
     this.scrapbook.domElement.appendChild(this.domElement);
   }
 
-  drop(dontStep) {
+  drop(dontStep, plusSelect) {
     this.domElement.classList.remove("dragging");
     document.body.classList.remove("dragging");
     draggingEphemera = null;
@@ -329,31 +386,35 @@ class Ephemera {
     this.mousedown = false;
     this.dragOffset = { x:0, y:0 };
 
-    if (selectedEphemera && selectedEphemera != this) selectedEphemera.deselect();
+    if (!plusSelect) {
+      for (let i=selectedEphemera.length-1; i>=0; i--) {
+        if (selectedEphemera[i] == this) continue;
+        selectedEphemera[i].deselect();
+      }
+    }
 
     if (!dontStep && this.scrapbook) this.scrapbook.step();
   }
 
-  select(autoFocus, dontStep) {
+  select(autoFocus, dontStep, plusSelect) {
     if (this.selected) {
       this.focus();
       this.drop(true);
     } else {
-      if (selectedEphemera) selectedEphemera.deselect();
-      selectedEphemera = this;
+      selectedEphemera.push(this);
       this.domElement.classList.add("selected");
       this.selected = true;
       if (autoFocus) this.focus();
-      this.drop(dontStep);
+      this.drop(dontStep, plusSelect);
     }
   }
 
   deselect(dontStep) {
     this.unfocus(dontStep);
     this.domElement.classList.remove("selected");
-    selectedEphemera = null;
     this.selected = false;
     this.mousedown = false;
+    selectedEphemera.splice(selectedEphemera.indexOf(this), 1);
   }
 
   focus(dontStep) {
@@ -378,6 +439,9 @@ class Ephemera {
       ephemera.index--;
       ephemera.domElement.dataset.index = ephemera.index;
     }
+
+    let id = selectedEphemera.indexOf(this);
+    if (id != -1) selectedEphemera.splice(id, 1);
 
     if (!dontStep) this.scrapbook.step();
   }
