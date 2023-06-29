@@ -187,6 +187,17 @@ class Scrapbook {
 
     for (let ephemera of snapshot) {
       this.add(ephemera, true);
+
+      if (ephemera.focused) {
+        ephemera.selected = false;
+        ephemera.focused = false;
+        ephemera.select(true, true);
+      } else if (ephemera.selected) {
+        ephemera.selected = false;
+        ephemera.select(false, true);
+      } else {
+        ephemera.deselect(true);
+      }
     }
   }
 
@@ -213,11 +224,9 @@ class Scrapbook {
 
       if (ephemera.size) temp.setSize(ephemera.size.width, ephemera.size.height);
       if (ephemera.position) temp.move(ephemera.position.x, ephemera.position.y);
-      if (ephemera.focused) {
-        temp.select(true);
-      } else if (ephemera.selected) {
-        temp.select();
-      }
+      temp.focused = ephemera.focused;
+      temp.selected = ephemera.selected;
+      temp.mousedown = ephemera.mousedown;
 
       snapshot[ephemera.domOrder] = temp;
     }
@@ -325,7 +334,7 @@ class Ephemera {
     if (!dontStep && this.scrapbook) this.scrapbook.step();
   }
 
-  select(autoFocus) {
+  select(autoFocus, dontStep) {
     if (this.selected) {
       this.focus();
       this.drop(true);
@@ -335,31 +344,31 @@ class Ephemera {
       this.domElement.classList.add("selected");
       this.selected = true;
       if (autoFocus) this.focus();
-      this.drop();
+      this.drop(dontStep);
     }
   }
 
-  deselect() {
-    this.unfocus();
+  deselect(dontStep) {
+    this.unfocus(dontStep);
     this.domElement.classList.remove("selected");
     selectedEphemera = null;
     this.selected = false;
     this.mousedown = false;
   }
 
-  focus() {
+  focus(dontStep) {
     this.domElement.classList.add("focused");
     this.focused = true;
-    this.focusAction();
+    this.focusAction(dontStep);
   }
-  unfocus() {
+  unfocus(dontStep) {
     this.domElement.classList.remove("focused");
     this.focused = false;
-    this.unfocusAction();
+    this.unfocusAction(dontStep);
   }
 
-  focusAction() { }
-  unfocusAction() { }
+  focusAction(dontStep) { }
+  unfocusAction(dontStep) { }
 
   delete(dontStep) {
     this.domElement.remove();
@@ -391,7 +400,7 @@ class TextElement extends Ephemera {
     }
   }
 
-  focusAction() {
+  focusAction(dontStep) {
     textCreationDisabled = true;
     this.textarea.focus();
 
@@ -411,7 +420,7 @@ class TextElement extends Ephemera {
     }
   }
 
-  unfocusAction() {
+  unfocusAction(dontStep) {
     textCreationDisabled = false;
     this.textarea.blur();
     if (this.textarea.textContent.trim() == "") {
@@ -420,7 +429,7 @@ class TextElement extends Ephemera {
 
     if (this.initialText && this.textarea.textContent != this.initialText) {
       this.initialText = null;
-      this.scrapbook.step();
+      if (!dontStep) this.scrapbook.step();
     }
   }
 
@@ -452,11 +461,11 @@ class ImageElement extends Ephemera {
     this.imageSrc = imageSrc;
   }
 
-  focusAction() {
+  focusAction(dontStep) {
 
   }
 
-  unfocusAction() {
+  unfocusAction(dontStep) {
 
   }
 
