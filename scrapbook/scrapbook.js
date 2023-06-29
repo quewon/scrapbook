@@ -1,5 +1,6 @@
 var selectedEphemera;
 var draggingEphemera;
+var textCreationDisabled = false;
 
 var imageUpload = document.getElementById("imageupload");
 var mousePosition = { x:-1, y:-1 };
@@ -74,6 +75,10 @@ function init() {
           selectedEphemera.delete();
         }
         break;
+
+      case "Escape":
+        if (draggingEphemera) draggingEphemera.drop();
+        break;
     }
   });
 
@@ -99,12 +104,14 @@ function init() {
             selectedEphemera.move(selectedEphemera.position.x + 1, selectedEphemera.position.y);
             break;
         }
+      } else if (e.key == "Escape") {
+        if (selectedEphemera) selectedEphemera.deselect();
       }
     }
   });
 
   document.addEventListener("keypress", function(e) {
-    if (!selectedEphemera && e.key) {
+    if (!textCreationDisabled && e.key) {
       e.preventDefault();
       createText(scrapbook);
     }
@@ -268,10 +275,12 @@ class TextElement extends Ephemera {
   }
 
   focusAction() {
+    textCreationDisabled = true;
     this.textarea.focus();
   }
 
   unfocusAction() {
+    textCreationDisabled = false;
     this.textarea.blur();
     if (this.textarea.textContent.trim() == "") {
       this.delete();
