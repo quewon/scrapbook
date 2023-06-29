@@ -80,9 +80,23 @@ function init() {
         if (draggingEphemera) draggingEphemera.drop();
         break;
     }
+
+    if (e.key == "ArrowUp" || e.key == "ArrowDown" || e.key == "ArrowLeft" || e.key == "ArrowRight") {
+      e.preventDefault();
+      scrapbook.step();
+    }
   });
 
   document.addEventListener("keydown", function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key == "z") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        scrapbook.redo();
+      } else {
+        scrapbook.undo();
+      }
+    }
+
     if (selectedEphemera && !selectedEphemera.focused) {
       if (e.key == "ArrowUp" || e.key == "ArrowDown" || e.key == "ArrowLeft" || e.key == "ArrowRight") {
         e.preventDefault();
@@ -113,7 +127,7 @@ function init() {
   document.addEventListener("keypress", function(e) {
     if (!textCreationDisabled && e.key) {
       e.preventDefault();
-      createText(scrapbook);
+      var ephemera = createText(scrapbook);
     }
   });
 }
@@ -121,18 +135,116 @@ function init() {
 class Scrapbook {
   constructor() {
     this.ephemera = [];
+    this.history = [];
+    this.historyIndex = -1;
+
     this.domElement = document.createElement("div");
     this.domElement.className = "scrapbook";
 
     document.body.appendChild(this.domElement);
   }
 
-  add(ephemera) {
+  add(ephemera, dontStep) {
     ephemera.index = this.ephemera.length;
     ephemera.domElement.dataset.index = ephemera.index;
     ephemera.scrapbook = this;
     this.ephemera.push(ephemera);
     this.domElement.appendChild(ephemera.domElement);
+
+    if (!dontStep) this.step();
+  }
+
+  undo() {
+    if (this.historyIndex == 0) {
+      console.log("no more undos");
+      return;
+    }
+
+    this.historyIndex--;
+    this.pasteSnapshot(this.history[this.historyIndex]);
+
+    console.log(this.historyIndex);
+  }
+
+  redo() {
+    if (this.historyIndex == this.history.length - 1) {
+      console.log("no more redos");
+      return;
+    }
+
+    this.historyIndex++;
+    this.pasteSnapshot(this.history[this.historyIndex]);
+
+    console.log(this.historyIndex);
+  }
+
+  pasteSnapshot(snapshot) {
+    for (let i=this.ephemera.length-1; i>=0; i--) {
+      this.ephemera[i].delete(true);
+    }
+
+    for (let ephemera of snapshot) {
+      this.add(ephemera, true);
+    }
+  }
+
+  createSnapshot() {
+    var snapshot = [];
+
+    for (let ephemera of this.ephemera) {
+      ephemera.domOrder = Array.prototype.indexOf.call(this.domElement.children, ephemera.domElement);
+    }
+
+    for (let ephemera of this.ephemera) {
+      var temp;
+      var width, height;
+
+      switch (ephemera.type) {
+        case "image":
+          temp = new ImageElement(ephemera.imageSrc);
+
+          width = parseInt(ephemera.image.style.width);
+          height = parseInt(ephemera.image.style.height);
+
+          if (width || height) {
+            temp.setSize(width, height);
+          }
+          break;
+
+        case "text":
+          temp = new TextElement(ephemera.textarea.innerHTML);
+
+          width = parseInt(ephemera.textarea.style.width);
+          height = parseInt(ephemera.textarea.style.height);
+
+          if (width || height) {
+            temp.setSize(width, height);
+          }
+          break;
+      }
+
+      if (ephemera.position) {
+        temp.move(ephemera.position.x, ephemera.position.y);
+      }
+
+      snapshot[ephemera.domOrder] = temp;
+    }
+
+    return snapshot;
+  }
+
+  clearHistory() {
+    console.clear();
+
+    this.history = [];
+    this.step();
+  }
+
+  step() {
+    this.history.splice(this.historyIndex + 1);
+
+    this.history.push(this.createSnapshot());
+    this.historyIndex = this.history.length - 1;
   }
 }
 
@@ -184,7 +296,7 @@ class Ephemera {
       const a = mousePosition.x - this.mousedownPosition.x;
       const b = mousePosition.y - this.mousedownPosition.y;
       const sqrMagnitude = a * a + b * b;
-      if (sqrMagnitude > 1) {
+      if (sqrMagnitude > .8) {
         this.mousedown = false;
       }
     }
@@ -205,7 +317,7 @@ class Ephemera {
     this.scrapbook.domElement.appendChild(this.domElement);
   }
 
-  drop() {
+  drop(dontStep) {
     this.domElement.classList.remove("dragging");
     document.body.classList.remove("dragging");
     draggingEphemera = null;
@@ -214,20 +326,22 @@ class Ephemera {
     this.dragOffset = { x:0, y:0 };
 
     if (selectedEphemera && selectedEphemera != this) selectedEphemera.deselect();
+
+    if (!dontStep) this.scrapbook.step();
   }
 
   select(autoFocus) {
     if (this.selected) {
       this.focus();
+      this.drop(true);
     } else {
       if (selectedEphemera) selectedEphemera.deselect();
       selectedEphemera = this;
       this.domElement.classList.add("selected");
       this.selected = true;
       if (autoFocus) this.focus();
+      this.drop();
     }
-
-    this.drop();
   }
 
   deselect() {
@@ -252,7 +366,7 @@ class Ephemera {
   focusAction() { }
   unfocusAction() { }
 
-  delete() {
+  delete(dontStep) {
     this.domElement.remove();
     this.scrapbook.ephemera.splice(this.index, 1);
     for (let i=this.index; i<this.scrapbook.ephemera.length; i++) {
@@ -260,23 +374,46 @@ class Ephemera {
       ephemera.index--;
       ephemera.domElement.dataset.index = ephemera.index;
     }
+
+    if (!dontStep) this.scrapbook.step();
   }
 }
 
 class TextElement extends Ephemera {
-  constructor() {
+  constructor(input) {
     super();
+
+    this.type = "text";
 
     const textarea = document.createElement("div");
     textarea.setAttribute("contenteditable", true);
 
     this.domElement.appendChild(textarea);
     this.textarea = textarea;
+
+    if (input) {
+      this.textarea.innerHTML = input;
+    }
   }
 
   focusAction() {
     textCreationDisabled = true;
     this.textarea.focus();
+
+    this.initialText = this.textarea.textContent;
+
+    try {
+      var range = document.createRange();
+      var sel = window.getSelection();
+
+      range.setStart(this.textarea, this.textarea.textContent.length);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    catch {
+
+    }
   }
 
   unfocusAction() {
@@ -285,21 +422,26 @@ class TextElement extends Ephemera {
     if (this.textarea.textContent.trim() == "") {
       this.delete();
     }
-  }
 
-  setText(text) {
-    this.textarea.innerHTML = text;
+    if (this.initialText && this.textarea.textContent != this.initialText) {
+      this.initialText = null;
+      this.scrapbook.step();
+    }
   }
 
   setSize(width, height) {
     this.textarea.style.width = width+"px";
     this.textarea.style.height = height+"px";
+
+    if (this.scrapbook) this.scrapbook.step();
   }
 }
 
 class ImageElement extends Ephemera {
   constructor(imageSrc) {
     super();
+
+    this.type = "image";
 
     const image = document.createElement("img");
     image.src = imageSrc;
@@ -310,6 +452,7 @@ class ImageElement extends Ephemera {
 
     this.domElement.appendChild(div);
     this.image = div;
+    this.imageSrc = imageSrc;
   }
 
   focusAction() {
@@ -318,6 +461,13 @@ class ImageElement extends Ephemera {
 
   unfocusAction() {
 
+  }
+
+  setSize(width, height) {
+    this.image.style.width = width+"px";
+    this.image.style.height = height+"px";
+
+    if (this.scrapbook) this.scrapbook.step();
   }
 }
 
@@ -329,10 +479,12 @@ function importImage(scrapbook, image) {
   ephemera.move(mousePosition.x, mousePosition.y);
 }
 
-function createText(scrapbook) {
-  const ephemera = new TextElement();
+function createText(scrapbook, input) {
+  const ephemera = new TextElement(input);
   scrapbook.add(ephemera);
   ephemera.select(true);
 
   ephemera.move(mousePosition.x, mousePosition.y);
+
+  return ephemera;
 }

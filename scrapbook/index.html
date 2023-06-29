@@ -19,25 +19,24 @@
 
     var scrapbook = new Scrapbook();
 
-    const text = new TextElement();
+    const text = new TextElement("안녕하세요! 이건 단순한 디지털 스크랩북 데모입니다.<br><br>이 텍스트 상자는 <b>드래그</b>해서 움직일 수 있고, <b>더블클릭</b>하면 텍스트 수정과 상자 크기 조절이 가능합니다.");
     scrapbook.add(text);
     text.move(100, 100);
-    text.setText("안녕하세요! 이건 단순한 디지털 스크랩북 데모입니다.<br><br>이 텍스트 상자는 <b>드래그</b>해서 움직일 수 있고, <b>더블클릭</b>하면 텍스트 수정과 상자 크기 조절이 가능합니다.");
     text.setSize(265, 279);
 
     const image = new ImageElement("democow.webp");
     scrapbook.add(image);
     image.move(440, 192);
 
-    const text2 = new TextElement();
+    const text2 = new TextElement("또 아무것도 선택되지 않은 상태에서 타이핑하면 저절로 텍스트 상자가 생깁니다.");
     scrapbook.add(text2);
     text2.move(285, 253);
-    text2.setText("또 아무것도 선택되지 않은 상태에서 타이핑하면 저절로 텍스트 상자가 생깁니다.");
     text2.setSize(255, 89);
 
-    const text3 = new TextElement();
+    const text3 = new TextElement("이미지도 넣을 수 있어요 :)");
     scrapbook.add(text3);
     text3.move(451, 654);
-    text3.setText("이미지도 넣을 수 있어요 :)");
+
+    scrapbook.clearHistory();
   </script>
 </html>
