@@ -187,7 +187,9 @@ class Ephemera {
     this.domElement.classList.add("dragging");
 
     const rect = this.domElement.getBoundingClientRect();
-    this.dragOffset = { x: rect.left - x, y: rect.top - y };
+    this.dragOffset = {
+      x: (document.documentElement.scrollLeft || 0) + rect.left - x,
+      y: (document.documentElement.scrollTop || 0) + rect.top - y };
 
     document.body.classList.add("dragging");
     draggingEphemera = this;
